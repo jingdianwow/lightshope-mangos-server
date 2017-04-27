@@ -51,7 +51,7 @@ UPDATE `creature_template` SET `speed_run` = 1.42857 WHERE `entry` = 5842;
 -- --------- Tallstriders ---------
 -- ALmost all tallstriders run at ~145%, follow the newbie speed rule
 UPDATE `creature_template` SET `speed_run` = 1.42857 
-    WHERE `family` = 12 AND minlevel > 10
+    WHERE `family` = 12 AND `minlevel` > 10
         AND `speed_run` > 0 AND `speed_walk` > 0;
 -- Mazzaranche runs at 100%
 UPDATE `creature_template` SET `speed_run` = 1 WHERE `entry` = 3068;
