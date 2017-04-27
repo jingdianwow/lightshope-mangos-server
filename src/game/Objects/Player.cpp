@@ -1228,8 +1228,6 @@ void Player::Update(uint32 update_diff, uint32 p_time)
         }
     }
 
-    m_regenTimer -= update_diff;
-
     if (m_weaponChangeTimer > 0)
     {
         if (update_diff >= m_weaponChangeTimer)
@@ -1264,7 +1262,14 @@ void Player::Update(uint32 update_diff, uint32 p_time)
         m_cannotBeDetectedTimer -= update_diff;
 
     if (isAlive())
+    {
+        m_regenTimer -= update_diff;
         RegenerateAll();
+    }
+    else
+    {
+        m_regenTimer = 0;
+    }
 
     if (m_deathState == JUST_DIED)
         KillPlayer();
@@ -1888,6 +1893,9 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
             CombatStop();
         }
 
+        if (!IsWithinDist3d(x, y, z, GetMap()->GetVisibilityDistance()))
+            RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED);
+
         // this will be used instead of the current location in SaveToDB
         m_teleport_dest = WorldLocation(mapid, x, y, z, orientation);
         DisableSpline();
@@ -1944,6 +1952,7 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
             SetSelectionGuid(ObjectGuid());
             CombatStop();
             ResetContestedPvP();
+            RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TELEPORTED);
 
             // reset extraAttack counter
             ResetExtraAttacks();
@@ -2176,7 +2185,6 @@ void Player::RegenerateAll()
     }
 
     Regenerate(POWER_ENERGY);
-
     Regenerate(POWER_MANA);
 
     m_regenTimer += REGEN_TIME_FULL;
