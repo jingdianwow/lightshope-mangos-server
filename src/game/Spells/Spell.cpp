@@ -4630,6 +4630,39 @@ SpellCastResult Spell::CheckCast(bool strict)
                 return SPELL_FAILED_ONLY_STEALTHED;
         }
     }
+    
+    // Nostalrius: impossible to cast spells while banished / feared / confused ...
+    // Except divine shields, pvp trinkets and other spells which have immunity to 
+    // _ALL_ affecting mechanics. eg, if stunned + charmed, do not allow charm trinket
+    // or stun trinket unless it gives immunity to both.
+    // TODO: This condition allows an antifear item to be used while stuned for example.
+    if (!m_IsTriggeredSpell && !IsSpellHaveAura(m_spellInfo, SPELL_AURA_SCHOOL_IMMUNITY) && !IsSpellHaveAura(m_spellInfo, SPELL_AURA_MECHANIC_IMMUNITY) &&
+            m_caster->hasUnitState(UNIT_STAT_ISOLATED | UNIT_STAT_STUNNED | UNIT_STAT_PENDING_STUNNED | UNIT_STAT_CONFUSED | UNIT_STAT_FLEEING))
+        return SPELL_FAILED_DONT_REPORT;
+
+    // zone check
+    SpellCastResult locRes = sSpellMgr.GetSpellAllowedInLocationError(m_spellInfo, m_caster, m_caster->GetCharmerOrOwnerPlayerOrPlayerItself());
+    if (locRes != SPELL_CAST_OK)
+        return locRes;
+        
+    // caster state requirements
+    if (m_spellInfo->CasterAuraState && !m_caster->HasAuraState(AuraState(m_spellInfo->CasterAuraState)))
+        return SPELL_FAILED_CASTER_AURASTATE;
+
+    // not let players cast spells at mount (and let do it to creatures)
+    if (m_caster->IsMounted() && m_caster->GetTypeId() == TYPEID_PLAYER && !m_IsTriggeredSpell &&
+            !IsPassiveSpell(m_spellInfo) && !(m_spellInfo->Attributes & SPELL_ATTR_CASTABLE_WHILE_MOUNTED))
+    {
+        if (m_caster->IsTaxiFlying())
+            return SPELL_FAILED_NOT_ON_TAXI;
+        else if (m_caster->GetTypeId() == TYPEID_PLAYER)
+        {
+            m_caster->Unmount();
+            m_caster->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
+        }
+        else
+            return SPELL_FAILED_NOT_MOUNTED;
+    }
 
     if (m_caster->GetTypeId() == TYPEID_PLAYER && !((Player*)m_caster)->isGameMaster() &&
             sWorld.getConfig(CONFIG_BOOL_VMAP_INDOOR_CHECK) &&
@@ -4643,10 +4676,6 @@ SpellCastResult Spell::CheckCast(bool strict)
                 m_caster->GetTerrain()->IsOutdoors(m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ()))
             return m_IsTriggeredSpell ? SPELL_FAILED_DONT_REPORT : SPELL_FAILED_ONLY_INDOORS;
     }
-
-    // caster state requirements
-    if (m_spellInfo->CasterAuraState && !m_caster->HasAuraState(AuraState(m_spellInfo->CasterAuraState)))
-        return SPELL_FAILED_CASTER_AURASTATE;
 
     if (m_caster->GetTypeId() == TYPEID_PLAYER)
     {
@@ -4910,33 +4939,6 @@ SpellCastResult Spell::CheckCast(bool strict)
                     return SPELL_FAILED_LINE_OF_SIGHT;
             }
         }
-    }
-    
-    // Nostalrius: impossible to cast spells while banned / feared / confused ...
-    // Except divine shields, pvp trinkets for example
-    // TODO: This condition allows an antifear item to be used while stuned for example.
-    if (!m_IsTriggeredSpell && !IsSpellHaveAura(m_spellInfo, SPELL_AURA_SCHOOL_IMMUNITY) && !IsSpellHaveAura(m_spellInfo, SPELL_AURA_MECHANIC_IMMUNITY) &&
-            m_caster->hasUnitState(UNIT_STAT_ISOLATED | UNIT_STAT_STUNNED | UNIT_STAT_PENDING_STUNNED | UNIT_STAT_CONFUSED | UNIT_STAT_FLEEING))
-        return SPELL_FAILED_DONT_REPORT;
-
-    // zone check
-    SpellCastResult locRes = sSpellMgr.GetSpellAllowedInLocationError(m_spellInfo, m_caster, m_caster->GetCharmerOrOwnerPlayerOrPlayerItself());
-    if (locRes != SPELL_CAST_OK)
-        return locRes;
-
-    // not let players cast spells at mount (and let do it to creatures)
-    if (m_caster->IsMounted() && m_caster->GetTypeId() == TYPEID_PLAYER && !m_IsTriggeredSpell &&
-            !IsPassiveSpell(m_spellInfo) && !(m_spellInfo->Attributes & SPELL_ATTR_CASTABLE_WHILE_MOUNTED))
-    {
-        if (m_caster->IsTaxiFlying())
-            return SPELL_FAILED_NOT_ON_TAXI;
-        else if (m_caster->GetTypeId() == TYPEID_PLAYER)
-        {
-            m_caster->Unmount();
-            m_caster->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
-        }
-        else
-            return SPELL_FAILED_NOT_MOUNTED;
     }
 
     // always (except passive spells) check items (focus object can be required for any type casts)
