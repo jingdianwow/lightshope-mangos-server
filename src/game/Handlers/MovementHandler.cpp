@@ -441,10 +441,14 @@ void WorldSession::HandleMoveNotActiveMoverOpcode(WorldPacket &recv_data)
 
     recv_data >> old_mover_guid;
     recv_data >> mi;
-    _clientMoverGuid = ObjectGuid();
+    //_clientMoverGuid = ObjectGuid();
 
     // Client sent not active mover, but maybe the mover is actually set?
     if (_player->GetMover() && _player->GetMover()->GetObjectGuid() == old_mover_guid)
+    {
+        _player->m_movementInfo = mi;
+    }
+    else
     {
         DETAIL_LOG("HandleMoveNotActiveMover: incorrect mover guid: mover is %s and should be %s instead of %s",
                        _player->GetMover()->GetGuidStr().c_str(),
@@ -454,7 +458,7 @@ void WorldSession::HandleMoveNotActiveMoverOpcode(WorldPacket &recv_data)
         return;
     }
 
-    _player->m_movementInfo = mi;
+    
 }
 
 void WorldSession::HandleMountSpecialAnimOpcode(WorldPacket& /*recvdata*/)
@@ -790,9 +794,9 @@ void WorldSession::HandleMoveUnRootAck(WorldPacket& recv_data)
     HandleMoverRelocation(movementInfo);
     _player->UpdateFallInformationIfNeed(movementInfo, recv_data.GetOpcode());
 
-    WorldPacket data(MSG_MOVE_UNROOT, recv_data.size());
+    WorldPacket data(SMSG_SPLINE_MOVE_UNROOT, recv_data.size());
     data << _player->GetPackGUID();
-    movementInfo.Write(data);
+    //movementInfo.Write(data);
     _player->SendMovementMessageToSet(std::move(data), true, _player);
     
     // Clear unit client state for brevity, though it should not be used
@@ -826,9 +830,9 @@ void WorldSession::HandleMoveRootAck(WorldPacket& recv_data)
     HandleMoverRelocation(movementInfo);
     _player->UpdateFallInformationIfNeed(movementInfo, recv_data.GetOpcode());
     
-    WorldPacket data(MSG_MOVE_ROOT, recv_data.size());
+    WorldPacket data(SMSG_SPLINE_MOVE_ROOT, recv_data.size());
     data << _player->GetPackGUID();
-    movementInfo.Write(data);
+    //movementInfo.Write(data);
     _player->SendMovementMessageToSet(std::move(data), true, _player);
     
     // Set unit client state for brevity, though it should not be used

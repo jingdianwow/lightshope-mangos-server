@@ -123,6 +123,9 @@ int32 MoveSplineInit::Launch()
     WorldPacket data(SMSG_MONSTER_MOVE, 64);
     data << unit.GetPackGUID();
 
+    if (unit.IsPlayer())
+        DEBUG_LOG("Player movespline, Guid: %s", unit.GetGuidStr().c_str());
+
     if (newTransport)
     {
         data.SetOpcode(SMSG_MONSTER_MOVE_TRANSPORT);
