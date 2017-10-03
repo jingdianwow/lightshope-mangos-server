@@ -1467,6 +1467,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
 
         void DelaySpellAuraHolder(uint32 spellId, int32 delaytime, ObjectGuid casterGuid);
 
+        void ExecuteDelayedAuraDelete();    // Attempt to delete holders again at unit removal if they were in use the first time
+
         void SetCreateStat(Stats stat, float val) { m_createStats[stat] = val; }
         void SetCreateHealth(uint32 val) { SetUInt32Value(UNIT_FIELD_BASE_HEALTH, val); }
         uint32 GetCreateHealth() const { return GetUInt32Value(UNIT_FIELD_BASE_HEALTH); }
@@ -1932,6 +1934,8 @@ class MANGOS_DLL_SPEC Unit : public WorldObject
         SpellAuraHolderMap::iterator m_spellAuraHoldersUpdateIterator; // != end() in Unit::m_spellAuraHolders update and point to next element
         AuraList m_deletedAuras;                                       // auras removed while in ApplyModifier and waiting deleted
         SpellAuraHolderList m_deletedHolders;
+        SpellAuraHolderList m_delayedHolderDelete;  // Auras that could not be cleaned up first time due to being in use, will attempt at Map::Remove
+        AuraList m_delayedAuraDelete;
 
         SingleCastSpellTargetMap m_singleCastSpellTargets;  // casted by unit single per-caster auras
 

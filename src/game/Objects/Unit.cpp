@@ -8947,6 +8947,7 @@ void Unit::RemoveFromWorld()
         RemoveAllGameObjects();
         RemoveAllDynObjects();
         CleanupDeletedAuras();
+        ExecuteDelayedAuraDelete(); // any auras that were in use at some point and unable to be deleted
         GetViewPoint().Event_RemovedFromWorld();
     }
     if (m_needUpdateVisibility && FindMap())
@@ -8975,6 +8976,7 @@ void Unit::CleanupsBeforeDelete()
         }
         RemoveAllAuras(AURA_REMOVE_BY_DELETE);
         CleanupDeletedAuras(); // any long range channeled spells need to be cleaned up after aura deletion
+        ExecuteDelayedAuraDelete(); // any auras that were in use at some point and unable to be deleted
     }
     WorldObject::CleanupsBeforeDelete();
 }
@@ -10307,10 +10309,9 @@ void Unit::CleanupDeletedAuras()
             // - Spell damage
             // - Player::SetDeathState
             // - Pet::AddObjectToRemoveList
+            // - Unit removed from world on death
             // Seen happening with spells like [Health Funnel], [Tainted Blood]
-            ACE_Stack_Trace st;
-            sLog.outInfo("[Crash/Auras] Deleting aura holder %u in use (%s)", (*iter)->GetId(), GetObjectGuid().GetString().c_str());
-            sLog.outInfo("%s", st.c_str());
+            m_delayedHolderDelete.push_back(*iter);
         }
         else
             delete *iter;
@@ -10322,14 +10323,41 @@ void Unit::CleanupDeletedAuras()
     {
         if ((*iter)->IsInUse())
         {
-            ACE_Stack_Trace st;
-            sLog.outInfo("[Crash/Auras] Deleting aura %u in use (%s)", (*iter)->GetId(), GetObjectGuid().GetString().c_str());
-            sLog.outInfo("%s", st.c_str());
+            m_delayedAuraDelete.push_back(*iter);
         }
         else
             delete *iter;
     }
     m_deletedAuras.clear();
+}
+
+void Unit::ExecuteDelayedAuraDelete()
+{
+    for (SpellAuraHolderList::const_iterator iter = m_delayedHolderDelete.begin(); iter != m_delayedHolderDelete.end(); ++iter)
+    {
+        if ((*iter)->IsInUse())
+        {
+            ACE_Stack_Trace st;
+            sLog.outInfo("[Crash/Auras] Holder %u on (%s) being deleted at unit removal, still in use", (*iter)->GetId(), GetObjectGuid().GetString().c_str());
+            sLog.outInfo("%s", st.c_str());
+        }
+        else
+            delete *iter;
+    }
+    m_delayedHolderDelete.clear();
+
+    for (AuraList::const_iterator iter = m_delayedAuraDelete.begin(); iter != m_delayedAuraDelete.end(); ++iter)
+    {
+        if ((*iter)->IsInUse())
+        {
+            ACE_Stack_Trace st;
+            sLog.outInfo("[Crash/Auras] Aura %u on (%s) being deleted at unit removal, still in use", (*iter)->GetId(), GetObjectGuid().GetString().c_str());
+            sLog.outInfo("%s", st.c_str());
+        }
+        else
+            delete *iter;
+    }
+    m_delayedAuraDelete.clear();
 }
 
 bool Unit::CheckAndIncreaseCastCounter()
