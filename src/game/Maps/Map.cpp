@@ -1431,7 +1431,7 @@ void Map::AddObjectToRemoveList(WorldObject *obj)
 {
     MANGOS_ASSERT(obj->GetMapId() == GetId() && obj->GetInstanceId() == GetInstanceId());
 
-    obj->CleanupsBeforeDelete();                            // remove or simplify at least cross referenced links
+    // DON'T CLEANUP THE UNIT HERE. THIS SHOULD BE DONE ON REMOVAL, NOT WHEN SCHEDULED
     i_objectsToRemove_lock.acquire();
     i_objectsToRemove.insert(obj);
     i_objectsToRemove_lock.release();
@@ -1447,6 +1447,8 @@ void Map::RemoveAllObjectsInRemoveList()
     {
         WorldObject* obj = *i_objectsToRemove.begin();
         i_objectsToRemove.erase(i_objectsToRemove.begin());
+
+        obj->CleanupsBeforeDelete();                            // remove or simplify at least cross referenced links
 
         switch (obj->GetTypeId())
         {
