@@ -578,3 +578,102 @@ void ThreatManager::setCurrentVictimIfCan(Unit * pVictim)
         setCurrentVictim(pHRef);
     }
 }
+
+Unit* ThreatManager::SelectAttackingTarget(const Creature* attacker, AttackingTarget target, uint32 position, SpellEntry const* pSpellInfo /*= nullptr*/, uint32 selectFlags/*= SELECT_FLAG_NO_TOTEM*/) const
+{
+    ThreatList const& threatlist = getThreatManager().getThreatList();
+    ThreatList::const_iterator itr = threatlist.begin();
+    ThreatList::const_reverse_iterator ritr = threatlist.rbegin();
+
+    if (position >= threatlist.size() || !threatlist.size())
+        return nullptr;
+
+    switch (target)
+    {
+        case ATTACKING_TARGET_RANDOM:
+        {
+            std::vector<Unit*> suitableUnits;
+            suitableUnits.reserve(threatlist.size() - position);
+            advance(itr, position);
+            for (; itr != threatlist.end(); ++itr)
+                if (Unit* pTarget = attacker->GetMap()->GetUnit((*itr)->getUnitGuid()))
+                    if (!selectFlags || attacker->MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                        suitableUnits.push_back(pTarget);
+
+            if (!suitableUnits.empty())
+                return suitableUnits[urand(0, suitableUnits.size() - 1)];
+
+            break;
+        }
+        case ATTACKING_TARGET_TOPAGGRO:
+        {
+            advance(itr, position);
+            for (; itr != threatlist.end(); ++itr)
+                if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
+                    if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                        return pTarget;
+
+            break;
+        }
+        case ATTACKING_TARGET_BOTTOMAGGRO:
+        {
+            advance(ritr, position);
+            for (; ritr != threatlist.rend(); ++ritr)
+                if (Unit* pTarget = GetMap()->GetUnit((*itr)->getUnitGuid()))
+                    if (!selectFlags || MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                        return pTarget;
+
+            break;
+        }
+        case ATTACKING_TARGET_NEAREST:
+        {
+            float distance = -1;
+            float combatDistance = 0;
+            Unit* pTarget = nullptr;
+            Unit* suitableTarget = nullptr;
+
+            advance(itr, position);
+            for (; itr != threatlist.end(); ++itr)
+            {
+                pTarget = GetMap()->GetUnit((*itr)->getUnitGuid());
+                if (pTarget && MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                {
+                    combatDistance = GetDistanceToCenter(pTarget);
+                    if (!suitableTarget || combatDistance < distance)
+                    {
+                        distance = combatDistance;
+                        suitableTarget = pTarget;
+                    }
+                }
+            }
+
+            return suitableTarget;
+        }
+        case ATTACKING_TARGET_FARTHEST:
+        {
+            float distance = -1;
+            float combatDistance = 0;
+            Unit* pTarget = nullptr;
+            Unit* suitableTarget = nullptr;
+
+            advance(itr, position);
+            for (; itr != threatlist.end(); ++itr)
+            {
+                pTarget = GetMap()->GetUnit((*itr)->getUnitGuid());
+                if (pTarget && MeetsSelectAttackingRequirement(pTarget, pSpellInfo, selectFlags))
+                {
+                    combatDistance = GetCombatDistance(pTarget);
+                    if (combatDistance > distance)
+                    {
+                        distance = combatDistance;
+                        suitableTarget = pTarget;
+                    }
+                }
+            }
+
+            return suitableTarget;
+        }
+    }
+
+    return nullptr;
+}

@@ -217,8 +217,8 @@ public:
 
     void setDirty(bool pDirty) { iThreatContainer.setDirty(pDirty); }
 
-    // Don't must be used for explicit modify threat values in iterator return pointers
-    ThreatList const& getThreatList() const { return iThreatContainer.getThreatList(); }
+    Unit* SelectAttackingTarget(const Creature* attacker, AttackingTarget target, uint32 position, SpellEntry const* pSpellInfo /*= nullptr*/, uint32 selectFlags/*= SELECT_FLAG_NO_TOTEM*/) const;
+
 private:
     HostileReference* iCurrentVictim;
     Unit* iOwner;
