@@ -72,18 +72,18 @@ class MANGOS_DLL_SPEC HostileReference : public Reference<Unit, ThreatManager>
 
         // used for temporary setting a threat and reducting it later again.
         // the threat modification is stored
-        void setTempThreat(float pThreat) { iTempThreatModifyer = pThreat - getThreat(); if(iTempThreatModifyer != 0.0f) addThreat(iTempThreatModifyer);  }
-        void setTempThreatModifier(float thread) { iTempThreatModifyer = thread; addThreat(iTempThreatModifyer); }
+        void setTempThreat(float pThreat) { _tempThreatModifier = pThreat - getThreat(); if(_tempThreatModifier != 0.0f) addThreat(_tempThreatModifier);  }
+        void setTempThreatModifier(float thread) { _tempThreatModifier = thread; addThreat(_tempThreatModifier); }
 
         void resetTempThreat()
         {
-            if(iTempThreatModifyer != 0.0f)
+            if(_tempThreatModifier != 0.0f)
             {
-                addThreat(-iTempThreatModifyer);  iTempThreatModifyer = 0.0f;
+                addThreat(-_tempThreatModifier);  _tempThreatModifier = 0.0f;
             }
         }
 
-        float getTempThreatModifyer() const { return iTempThreatModifyer; }
+        float getTempThreatModifier() const { return _tempThreatModifier; }
 
         //=================================================
         // check, if source can reach target and set the status
@@ -125,7 +125,7 @@ class MANGOS_DLL_SPEC HostileReference : public Reference<Unit, ThreatManager>
 
         Unit* getSourceUnit();
         float iThreat;
-        float iTempThreatModifyer;                          // used for taunt
+        float _tempThreatModifier;                          // used for taunt
         ObjectGuid iUnitGuid;
         bool iOnline;
         bool iAccessible;
@@ -143,8 +143,8 @@ class MANGOS_DLL_SPEC ThreatContainer
 protected:
     friend class ThreatManager;
 
-    void remove(HostileReference* pRef) { iThreatList.remove(pRef); }
-    void addReference(HostileReference* pHostileReference) { iThreatList.push_back(pHostileReference); }
+    void remove(HostileReference* ref);
+    void addReference(HostileReference* ref);
     void clearReferences();
     // Sort the list if necessary
     void update();
@@ -162,13 +162,18 @@ public:
 
     bool isDirty() const { return iDirty; }
 
-    bool empty() const { return(iThreatList.empty()); }
+    bool empty() const { ACE_Guard<ACE_Thread_Mutex> guard(_listLock); return iThreatList.empty(); }
 
-    HostileReference* getMostHated() { return iThreatList.empty() ? NULL : iThreatList.front(); }
+    HostileReference* getMostHated();
 
     HostileReference* getReferenceByTarget(Unit* pVictim);
 
-    ThreatList const& getThreatList() const { return iThreatList; }
+private:
+    // Serialize access to the threat list for cross-thread interactions
+    // (eg. player has a HoT on someone and changes map.) If the player
+    // then clears their hostile ref manager (eg. died), there is potential
+    // for concurrent access to iThreatList
+    mutable ACE_Thread_Mutex    _listLock;
 };
 
 //=================================================

@@ -63,7 +63,7 @@ float ThreatCalcHelper::CalcThreat(Unit* pHatedUnit, Unit* /*pHatingUnit*/, floa
 HostileReference::HostileReference(Unit* pUnit, ThreatManager *pThreatManager, float pThreat)
 {
     iThreat = pThreat;
-    iTempThreatModifyer = 0.0f;
+    _tempThreatModifier = 0.0f;
     link(pUnit, pThreatManager);
     iUnitGuid = pUnit->GetObjectGuid();
     iOnline = true;
@@ -204,6 +204,7 @@ Unit* HostileReference::getSourceUnit()
 
 void ThreatContainer::clearReferences()
 {
+    ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
     for (ThreatList::const_iterator i = iThreatList.begin(); i != iThreatList.end(); ++i)
     {
         (*i)->unlink();
@@ -221,6 +222,7 @@ HostileReference* ThreatContainer::getReferenceByTarget(Unit* pVictim)
 
     HostileReference* result = nullptr;
     ObjectGuid guid = pVictim->GetObjectGuid();
+    ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
     for (ThreatList::const_iterator i = iThreatList.begin(); i != iThreatList.end(); ++i)
     {
         if ((*i)->getUnitGuid() == guid)
@@ -276,6 +278,7 @@ bool HostileReferenceSortPredicate(const HostileReference* lhs, const HostileRef
 
 void ThreatContainer::update()
 {
+    ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
     if (iDirty && iThreatList.size() > 1)
         iThreatList.sort(HostileReferenceSortPredicate);
     iDirty = false;
@@ -299,7 +302,7 @@ HostileReference* ThreatContainer::selectNextVictim(Creature* pAttacker, Hostile
     {
         if (attempt) // Second attempt
             allowLowPriorityTargets = true;
-
+        ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
         for (ThreatList::const_iterator iter = iThreatList.begin(); iter != iThreatList.end() && !found;)
         {
             currentRef = (*iter);
@@ -365,6 +368,24 @@ HostileReference* ThreatContainer::selectNextVictim(Creature* pAttacker, Hostile
         currentRef = nullptr;
 
     return currentRef;
+}
+
+HostileReference* ThreatContainer::getMostHated()
+{
+    ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
+    return iThreatList.empty() ? NULL : iThreatList.front();
+}
+
+void ThreatContainer::addReference(HostileReference* ref)
+{
+    ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
+    iThreatList.push_back(ref);
+}
+
+void ThreatContainer::remove(HostileReference* ref)
+{
+    ACE_Guard<ACE_Thread_Mutex> guard(_listLock);
+    iThreatList.remove(ref);
 }
 
 //============================================================
@@ -479,7 +500,7 @@ void ThreatManager::tauntApply(Unit* pTaunter)
         if (getCurrentVictim() && (ref->getThreat() < getCurrentVictim()->getThreat()))
         {
             // Ok, temp threat is unused
-            if (ref->getTempThreatModifyer() == 0.0f)
+            if (ref->getTempThreatModifier() == 0.0f)
                 ref->setTempThreat(getCurrentVictim()->getThreat());
         }
     }

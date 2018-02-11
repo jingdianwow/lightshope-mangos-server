@@ -44,7 +44,7 @@ void HostileRefManager::addTempThreat(float threat, bool apply)
     {
         if (apply)
         {
-            if (ref->getTempThreatModifyer() == 0.0f)
+            if (ref->getTempThreatModifier() == 0.0f)
                 ref->setTempThreatModifier(threat);
         }
         else
